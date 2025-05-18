@@ -4,7 +4,7 @@
 
 namespace FakerPress\ThirdParty\Composer\Autoload;
 
-class ComposerStaticInitfc1f5206dd22906c2cc6c27bc692c865
+class ComposerStaticInitd5121936f54683f66b125706a9d5d3e3
 {
     public static $files = array (
         '009ddd489b3d26de464d8a67be8b5b8d' => __DIR__ . '/..' . '/symfony/deprecation-contracts/function.php',
@@ -660,9 +660,9 @@ class ComposerStaticInitfc1f5206dd22906c2cc6c27bc692c865
     public static function getInitializer(ClassLoader $loader)
     {
         return \Closure::bind(function () use ($loader) {
-            $loader->prefixLengthsPsr4 = ComposerStaticInitfc1f5206dd22906c2cc6c27bc692c865::$prefixLengthsPsr4;
-            $loader->prefixDirsPsr4 = ComposerStaticInitfc1f5206dd22906c2cc6c27bc692c865::$prefixDirsPsr4;
-            $loader->classMap = ComposerStaticInitfc1f5206dd22906c2cc6c27bc692c865::$classMap;
+            $loader->prefixLengthsPsr4 = ComposerStaticInitd5121936f54683f66b125706a9d5d3e3::$prefixLengthsPsr4;
+            $loader->prefixDirsPsr4 = ComposerStaticInitd5121936f54683f66b125706a9d5d3e3::$prefixDirsPsr4;
+            $loader->classMap = ComposerStaticInitd5121936f54683f66b125706a9d5d3e3::$classMap;
 
         }, null, ClassLoader::class);
     }

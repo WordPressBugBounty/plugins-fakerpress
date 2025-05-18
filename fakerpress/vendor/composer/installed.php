@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'bordoni/fakerpress',
-        'pretty_version' => 'dev-task/move-to-wp-scripts',
-        'version' => 'dev-task/move-to-wp-scripts',
-        'reference' => 'ab08f675da95bb617ecbd77616cfab06e414ef71',
+        'pretty_version' => '0.7.1',
+        'version' => '0.7.1.0',
+        'reference' => '1709e420863b38f9f9767adcea5e42c581ff6179',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -11,9 +11,9 @@
     ),
     'versions' => array(
         'bordoni/fakerpress' => array(
-            'pretty_version' => 'dev-task/move-to-wp-scripts',
-            'version' => 'dev-task/move-to-wp-scripts',
-            'reference' => 'ab08f675da95bb617ecbd77616cfab06e414ef71',
+            'pretty_version' => '0.7.1',
+            'version' => '0.7.1.0',
+            'reference' => '1709e420863b38f9f9767adcea5e42c581ff6179',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
