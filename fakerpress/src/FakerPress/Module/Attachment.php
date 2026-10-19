@@ -1,4 +1,10 @@
 <?php
+/**
+ * Generation module for image attachments downloaded from the image providers.
+ *
+ * @package FakerPress
+ */
+
 namespace FakerPress\Module;
 
 use FakerPress\Provider\Image\Placeholder;
@@ -6,6 +12,10 @@ use FakerPress\Provider\Image\LoremPicsum;
 use WP_Error;
 use FakerPress;
 
+/**
+ * Generates attachments: builds image URLs for Placehold.co or Lorem Picsum, sideloads them into the media library,
+ * fills in title, caption, alt text and meta, and flags them as FakerPress content.
+ */
 class Attachment extends Abstract_Module {
 
 	/**
@@ -18,6 +28,11 @@ class Attachment extends Abstract_Module {
 	 */
 	public static $meta_key_original_url = '_fakerpress_original_url';
 
+	/**
+	 * Faker providers this module needs besides the WP_Attachment provider.
+	 *
+	 * @var string[]
+	 */
 	protected $dependencies = [
 		FakerPress\ThirdParty\Faker\Provider\Lorem::class,
 		FakerPress\ThirdParty\Faker\Provider\DateTime::class,
@@ -26,12 +41,27 @@ class Attachment extends Abstract_Module {
 		FakerPress\Provider\Image\LoremPicsum::class,
 	];
 
+	/**
+	 * Faker provider that generates the attachment fields.
+	 *
+	 * @var string
+	 */
 	protected $provider_class = FakerPress\Provider\WP_Attachment::class;
 
+	/**
+	 * Gets the slug of the module.
+	 *
+	 * @return string
+	 */
 	public static function get_slug(): string {
 		return 'attachments';
 	}
 
+	/**
+	 * The attachment module binds no WordPress hooks.
+	 *
+	 * @return void
+	 */
 	public function hook(): void {
 	}
 
@@ -47,16 +77,20 @@ class Attachment extends Abstract_Module {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Fetches the IDs of every attachment flagged as created by FakerPress.
+	 *
+	 * @param array $args WP_Query arguments that override the defaults.
+	 *
+	 * @return int[] Attachment IDs.
 	 */
 	public static function fetch( array $args = [] ): array {
 		$defaults = [
 			'post_type'      => 'attachment',
 			'post_status'    => 'any',
-			'nopaging'       => true,
+			'nopaging'       => true, // phpcs:ignore WordPressVIPMinimum.Performance.NoPaging.nopaging_nopaging -- Callers need every generated item, not one page (bulk delete, reuse of generated images).
 			'posts_per_page' => -1,
 			'fields'         => 'ids',
-			'meta_query'     => [
+			'meta_query'     => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Lists every item FakerPress generated, found by its flag meta (bulk delete, reuse of generated images).
 				[
 					'key'   => static::get_flag(),
 					'value' => true,
@@ -72,7 +106,11 @@ class Attachment extends Abstract_Module {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Not implemented for attachments yet.
+	 *
+	 * @param mixed $item Unused.
+	 *
+	 * @return void
 	 */
 	public static function delete( $item ) {
 		// TODO: Implement delete() method.
@@ -184,24 +222,24 @@ class Attachment extends Abstract_Module {
 			}
 		);
 
-		// Check for download errors if there are error unlink the temp file name
+		// Check for download errors if there are error unlink the temp file name.
 		if ( is_wp_error( $temporary_file ) ) {
 			return $temporary_file;
 		}
 
-		// First try to get mime type for standard images
+		// First try to get mime type for standard images.
 		$mime_type = wp_get_image_mime( $temporary_file );
 		
-		// If that fails, check if it's an SVG or other file type
+		// If that fails, check if it's an SVG or other file type.
 		if ( ! $mime_type ) {
 			$finfo     = finfo_open( FILEINFO_MIME_TYPE );
 			$mime_type = finfo_file( $finfo, $temporary_file );
 			finfo_close( $finfo );
 			
-			// If it's SVG, we need to handle it differently
+			// If it's SVG, we need to handle it differently.
 			if ( $mime_type === 'image/svg+xml' || $mime_type === 'text/xml' ) {
-				// Delete the SVG file as we don't want to process it
-				unlink( $temporary_file );
+				// Delete the SVG file as we don't want to process it.
+				wp_delete_file( $temporary_file );
 				return new WP_Error( 'svg-not-supported', __( 'SVG images are not supported. Please use a different image provider or format.', 'fakerpress' ) );
 			}
 		}
@@ -218,7 +256,14 @@ class Attachment extends Abstract_Module {
 		}
 
 		if ( ! $extension ) {
-			return new WP_Error( 'invalid-image-mimetype', sprintf( __( 'Invalid image MimeType (%s)', 'fakerpress' ), $mime_type ) );
+			return new WP_Error(
+				'invalid-image-mimetype',
+				sprintf(
+					/* translators: %s: MIME type of the downloaded file. */
+					__( 'Invalid image MimeType (%s)', 'fakerpress' ),
+					$mime_type
+				)
+			);
 		}
 
 		// Build file name with Extension.
@@ -229,12 +274,12 @@ class Attachment extends Abstract_Module {
 			'tmp_name' => $temporary_file,
 		];
 
-		// uploads as an attachment to WP
+		// Uploads as an attachment to WP.
 		$attachment_id = media_handle_sideload( $file, $post_parent_id );
 
-		// download_url requires deleting the file
+		// download_url requires deleting the file.
 		if ( file_exists( $temporary_file ) ) {
-			unlink( $temporary_file );
+			wp_delete_file( $temporary_file );
 		}
 
 		/**
@@ -244,17 +289,25 @@ class Attachment extends Abstract_Module {
 		*/
 		if ( is_wp_error( $attachment_id ) ) {
 			if ( file_exists( $temporary_file ) ) {
-				unlink( $temporary_file );
+				wp_delete_file( $temporary_file );
 			}
 			return $attachment_id;
 		}
 
-		// Return Attachment ID
+		// Return Attachment ID.
 		return $attachment_id;
 	}
 
 	/**
-	 * @inheritDoc
+	 * Downloads the generated image URL into the media library and flags the attachment as created by FakerPress.
+	 *
+	 * Also stores the original URL in the `_fakerpress_original_url` meta.
+	 *
+	 * @param mixed           $response Response so far, ignored.
+	 * @param array           $data     Generated attachment data, `attachment_url` is required.
+	 * @param Abstract_Module $module   Module being saved.
+	 *
+	 * @return int|WP_Error|false The attachment ID, the download error, or false when there is no URL.
 	 */
 	public function filter_save_response( $response, array $data, Abstract_Module $module ) {
 		if ( empty( $data['attachment_url'] ) ) {
@@ -263,19 +316,19 @@ class Attachment extends Abstract_Module {
 
 		$attachment_id = $this->handle_download( $data['attachment_url'] );
 
-		// Flag the Object as FakerPress
+		// Flag the Object as FakerPress.
 		update_post_meta( $attachment_id, static::get_flag(), 1 );
 
-		// Add the Original URL to the meta of the attachment
+		// Add the Original URL to the meta of the attachment.
 		update_post_meta( $attachment_id, static::$meta_key_original_url, $data['attachment_url'] );
 
 		return $attachment_id;
 	}
 
 	/**
-	 * Gets an Array with all the providers
+	 * Gets the image providers the attachment module can use.
 	 *
-	 * @return array  With ID, Text and Type
+	 * @return array List of providers, each with `id`, `text` (label) and `type`.
 	 */
 	public static function get_providers(): array {
 		return [
@@ -293,20 +346,25 @@ class Attachment extends Abstract_Module {
 	}
 
 	/**
+	 * Parses the request data and generates the attachments.
+	 *
+	 * Each attachment gets an image URL from the chosen provider, is sideloaded, flagged as FakerPress content and
+	 * then gets its title, author, date, caption, alt text and meta. Failed downloads are skipped.
+	 *
 	 * @since 0.6.4
 	 *
-	 * @throws \Exception
+	 * @throws \Exception Exceptions from the Faker generators are not caught.
 	 *
-	 * @param $qty
-	 * @param $request
+	 * @param int   $qty     Number of attachments to generate, at least one is always generated.
+	 * @param array $request The request data: provider, width, height, aspect_ratio, author, post_parent, interval_date, generate_* flags and meta.
 	 *
-	 * @return array|string
+	 * @return int[] IDs of the created attachments.
 	 */
 	public function parse_request( $qty, $request = [] ) {
 		// The quantity is already calculated by the REST endpoint or passed directly
-		// We should use the $qty parameter, not recalculate from request
+		// We should use the $qty parameter, not recalculate from request.
 
-		// Process date range
+		// Process date range.
 		if ( isset( $request['interval_date'] ) ) {
 			$date_range = [
 				'min' => $request['interval_date']['min'] ?? '-30 days',
@@ -319,7 +377,7 @@ class Attachment extends Abstract_Module {
 			];
 		}
 
-		// Process author - it comes as comma-separated string from select2
+		// Process author - it comes as comma-separated string from select2.
 		$author_ids = [ 1 ];
 		if ( ! empty( $request['author'] ) ) {
 			if ( is_string( $request['author'] ) ) {
@@ -329,7 +387,7 @@ class Attachment extends Abstract_Module {
 			}
 		}
 
-		// Process width range
+		// Process width range.
 		$width = [
 			'min' => 200,
 			'max' => 1200,
@@ -341,13 +399,13 @@ class Attachment extends Abstract_Module {
 			];
 		}
 
-		// Process height range
+		// Process height range.
 		$height = null;
 		if ( isset( $request['height'] ) && is_array( $request['height'] ) ) {
 			$min_height = absint( $request['height']['min'] );
 			$max_height = absint( $request['height']['max'] );
 			
-			// Only set height if at least one value is non-zero
+			// Only set height if at least one value is non-zero.
 			if ( $min_height > 0 || $max_height > 0 ) {
 				$height = [
 					'min' => $min_height,
@@ -377,17 +435,17 @@ class Attachment extends Abstract_Module {
 		// Initialize results array.
 		$results = [];
 
-		// Use the quantity passed in - it's already calculated by the REST endpoint
+		// Use the quantity passed in - it's already calculated by the REST endpoint.
 		$quantity = absint( $qty );
 		
-		// Ensure we have at least 1
+		// Ensure we have at least 1.
 		if ( $quantity < 1 ) {
 			$quantity = 1;
 		}
 		
-		// Debug logging
+		// Debug logging.
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-			error_log( 'FakerPress Attachment: Generating ' . $quantity . ' attachments' );
+			error_log( 'FakerPress Attachment: Generating ' . $quantity . ' attachments' ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Debug trace, only runs when WP_DEBUG is on.
 		}
 
 		// Generate attachments.
@@ -395,22 +453,22 @@ class Attachment extends Abstract_Module {
 			$attachment_data = $this->generate_attachment_data( $request );
 			
 			if ( ! empty( $attachment_data['attachment_url'] ) ) {
-				// Handle the download and creation of the attachment
+				// Handle the download and creation of the attachment.
 				$attachment_id = $this->handle_download( $attachment_data['attachment_url'], $attachment_data['post_parent'] ?? 0 );
 				
 				if ( is_wp_error( $attachment_id ) ) {
-					// Log the error for debugging
+					// Log the error for debugging.
 					if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
-						error_log( 'FakerPress Attachment Error: ' . $attachment_id->get_error_message() . ' for URL: ' . $attachment_data['attachment_url'] );
+						error_log( 'FakerPress Attachment Error: ' . $attachment_id->get_error_message() . ' for URL: ' . $attachment_data['attachment_url'] ); // phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Logs skipped downloads, only when WP_DEBUG is on.
 					}
 					continue;
 				}
 				
 				if ( $attachment_id ) {
-					// Flag the Object as FakerPress
+					// Flag the Object as FakerPress.
 					update_post_meta( $attachment_id, static::get_flag(), 1 );
 					
-					// Add the Original URL to the meta of the attachment
+					// Add the Original URL to the meta of the attachment.
 					update_post_meta( $attachment_id, static::$meta_key_original_url, $attachment_data['attachment_url'] );
 					
 					// Update additional fields.
@@ -453,13 +511,13 @@ class Attachment extends Abstract_Module {
 
 		switch ( $provider ) {
 			case 'lorempicsum':
-				// Use a specific image ID so we can fetch metadata
-				$image_id       = $faker->numberBetween( 0, 1084 ); // Lorem Picsum has ~1084 images
+				// Use a specific image ID so we can fetch metadata.
+				$image_id       = $faker->numberBetween( 0, 1084 ); // Lorem Picsum has ~1084 images.
 				$attachment_url = sprintf( 'https://picsum.photos/id/%d/%d/%d', $image_id, $width, $height );
 				
-				// Fetch image metadata to get author info
+				// Fetch image metadata to get author info.
 				$metadata_url = sprintf( 'https://picsum.photos/id/%d/info', $image_id );
-				$response     = $this->safe_remote_get( $metadata_url, [ 'timeout' => 5 ] );
+				$response     = $this->safe_remote_get( $metadata_url, [ 'timeout' => 5 ] ); // phpcs:ignore WordPressVIPMinimum.Performance.RemoteRequestTimeout.timeout_timeout -- Existing 5 second bound on the admin-only attribution lookup.
 				
 				if ( ! is_wp_error( $response ) && wp_remote_retrieve_response_code( $response ) === 200 ) {
 					$body     = wp_remote_retrieve_body( $response );
@@ -472,7 +530,7 @@ class Attachment extends Abstract_Module {
 				break;
 			case 'placeholder':
 			default:
-				// Add .png to get PNG format instead of SVG
+				// Add .png to get PNG format instead of SVG.
 				$attachment_url = sprintf( 'https://placehold.co/%dx%d.png', $width, $height );
 				break;
 		}
@@ -483,7 +541,7 @@ class Attachment extends Abstract_Module {
 			'post_title'     => $faker->sentence( $faker->numberBetween( 3, 8 ) ),
 			'post_author'    => $faker->randomElement( (array) $request['author_ids'] ),
 			'post_date'      => $faker->dateTimeBetween( $request['date_range']['min'], $request['date_range']['max'] )->format( 'Y-m-d H:i:s' ),
-			'image_author'   => $image_author, // Store author for later use
+			'image_author'   => $image_author, // Store author for later use.
 		];
 
 		// Add description if requested.
@@ -491,25 +549,26 @@ class Attachment extends Abstract_Module {
 			$data['post_content'] = $faker->paragraph( $faker->numberBetween( 3, 5 ) );
 		}
 
-		// Always add caption with attribution
+		// Always add caption with attribution.
 		$caption = '';
 		if ( $request['generate_caption'] ) {
 			$caption = $faker->sentence( $faker->numberBetween( 10, 20 ) );
 		}
 		
-		// Always add attribution based on provider
+		// Always add attribution based on provider.
 		if ( ! empty( $image_author ) ) {
-			// Lorem Picsum with known author
+			// Lorem Picsum with known author.
+			/* translators: %s: Name of the photographer. */
 			$attribution = sprintf( __( 'Photo by %s on Unsplash', 'fakerpress' ), $image_author );
 		} elseif ( $provider === 'lorempicsum' ) {
-			// Lorem Picsum without author info (fallback)
+			// Lorem Picsum without author info (fallback).
 			$attribution = __( 'Photo from Unsplash via Lorem Picsum', 'fakerpress' );
 		} else {
-			// Placehold.co
+			// Placehold.co images have no photographer to credit.
 			$attribution = __( 'Image from Placehold.co', 'fakerpress' );
 		}
 		
-		// Combine caption with attribution
+		// Combine caption with attribution.
 		$data['post_excerpt'] = $caption ? $caption . ' ' . $attribution : $attribution;
 
 		// Add parent post if specified.
@@ -559,9 +618,10 @@ class Attachment extends Abstract_Module {
 
 		// Add alt text if requested.
 		if ( $request['generate_alt_text'] ) {
-			// If we have an image author from Lorem Picsum, include attribution
+			// If we have an image author from Lorem Picsum, include attribution.
 			if ( ! empty( $attachment_data['image_author'] ) ) {
 				$alt_text = sprintf( 
+					/* translators: 1: Generated alt text sentence, 2: Name of the photographer. */
 					__( '%1$s - Photo by %2$s on Unsplash', 'fakerpress' ),
 					$faker->sentence( $faker->numberBetween( 3, 8 ) ),
 					$attachment_data['image_author']
@@ -572,10 +632,21 @@ class Attachment extends Abstract_Module {
 			update_post_meta( $attachment_id, '_wp_attachment_image_alt', $alt_text );
 		}
 
-		// Add custom meta if provided.
+		// Generate the meta field rules ( type, name, config, weight ), like the other modules do.
 		if ( ! empty( $request['meta'] ) && is_array( $request['meta'] ) ) {
-			foreach ( $request['meta'] as $meta_key => $meta_value ) {
-				update_post_meta( $attachment_id, $meta_key, $meta_value );
+			foreach ( $request['meta'] as $meta ) {
+				if ( ! is_array( $meta ) || ! isset( $meta['type'], $meta['name'] ) ) {
+					continue;
+				}
+
+				$type = $meta['type'];
+				$name = $meta['name'];
+				unset( $meta['type'], $meta['name'] );
+
+				$weight         = absint( $meta['weight'] ?? 100 );
+				$meta['weight'] = $weight > 0 ? $weight : 100;
+
+				FakerPress\make( Meta::class )->object( $attachment_id )->with( $type, $name, $meta )->generate()->save();
 			}
 		}
 	}
@@ -586,23 +657,23 @@ class Attachment extends Abstract_Module {
 	 * @since TBD
 	 *
 	 * @param mixed $dimension Dimension value or range.
-	 * @param int   $default Default value.
+	 * @param int   $fallback Value used when no dimension was given.
 	 *
 	 * @return int
 	 */
-	protected function get_random_dimension( $dimension, $default = 800 ) {
+	protected function get_random_dimension( $dimension, $fallback = 800 ) {
 		if ( is_numeric( $dimension ) ) {
 			return absint( $dimension );
 		}
 
 		if ( is_array( $dimension ) || is_object( $dimension ) ) {
 			$dimension = (array) $dimension;
-			$min       = isset( $dimension['min'] ) ? absint( $dimension['min'] ) : $default;
+			$min       = isset( $dimension['min'] ) ? absint( $dimension['min'] ) : $fallback;
 			$max       = isset( $dimension['max'] ) ? absint( $dimension['max'] ) : $min;
 			
 			return $this->get_faker()->numberBetween( $min, $max );
 		}
 
-		return $default;
+		return $fallback;
 	}
 }

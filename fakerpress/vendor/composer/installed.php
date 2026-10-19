@@ -1,9 +1,9 @@
 <?php return array(
     'root' => array(
         'name' => 'bordoni/fakerpress',
-        'pretty_version' => '0.9.2',
-        'version' => '0.9.2.0',
-        'reference' => 'e833f1fd0f25b81b0010105c4bc95347f9af60bb',
+        'pretty_version' => '0.10.0',
+        'version' => '0.10.0.0',
+        'reference' => 'cdc1da3effb4c22060ea1d2220c933cbc5bef128',
         'type' => 'wordpress-plugin',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -11,9 +11,9 @@
     ),
     'versions' => array(
         'bordoni/fakerpress' => array(
-            'pretty_version' => '0.9.2',
-            'version' => '0.9.2.0',
-            'reference' => 'e833f1fd0f25b81b0010105c4bc95347f9af60bb',
+            'pretty_version' => '0.10.0',
+            'version' => '0.10.0.0',
+            'reference' => 'cdc1da3effb4c22060ea1d2220c933cbc5bef128',
             'type' => 'wordpress-plugin',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),
@@ -71,9 +71,9 @@
             'dev_requirement' => false,
         ),
         'symfony/deprecation-contracts' => array(
-            'pretty_version' => 'v3.6.0',
-            'version' => '3.6.0.0',
-            'reference' => '63afe740e99a13ba87ec199bb07bbdee937a5b62',
+            'pretty_version' => 'v3.7.1',
+            'version' => '3.7.1.0',
+            'reference' => 'f3202fa1b5097b0af062dc978b32ecf63404e31d',
             'type' => 'library',
             'install_path' => __DIR__ . '/../symfony/deprecation-contracts',
             'aliases' => array(),

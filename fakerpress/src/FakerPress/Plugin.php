@@ -25,7 +25,7 @@ class Plugin {
 	 *
 	 * @var string
 	 */
-	public const VERSION = '0.9.2';
+	public const VERSION = '0.10.0';
 
 	/**
 	 * @since 0.6.0
@@ -49,31 +49,34 @@ class Plugin {
 	public $plugin_url;
 
 	/**
-	 * Variable holding the folder name of the plugin
+	 * Variable holding the folder name of the plugin.
 	 *
 	 * @since 0.1.0
+	 * @deprecated 0.9.0 Use `get_var( 'fakerpress.slug' )` instead.
 	 *
 	 * @var string
 	 */
 	public static $folder = 'fakerpress';
 
 	/**
-	 * Variable holding the slug name of the plugin
+	 * Variable holding the slug name of the plugin.
 	 *
 	 * @since 0.1.0
+	 * @deprecated 0.9.0 Use `get_slug()` instance method or `get_var( 'fakerpress.slug' )` instead.
 	 *
 	 * @var string
 	 */
 	public static $slug = 'fakerpress';
 
 	/**
-	 * The __FILE__ that initialized the plugin
+	 * The __FILE__ that initialized the plugin.
 	 *
 	 * @since 0.1.0
+	 * @deprecated 0.9.0 Use `get_var( 'fakerpress.file' )` instead.
 	 *
 	 * @var string
 	 */
-	public static $_file = __FP_FILE__;
+	public static $_file = __FP_FILE__; // phpcs:ignore PSR2.Classes.PropertyDeclaration.Underscore -- Public static property, renaming it breaks Plugin::$_file references.
 
 	/**
 	 * The Plugin external website base domain
@@ -82,7 +85,7 @@ class Plugin {
 	 *
 	 * @var string
 	 */
-	public static $_ext_domain = 'https://fakerpress.com';
+	public static $_ext_domain = 'https://fakerpress.com'; // phpcs:ignore PSR2.Classes.PropertyDeclaration.Underscore -- Public static property, renaming it breaks Plugin::$_ext_domain references.
 
 	/**
 	 * Store if the plugin has been booted or not.
@@ -142,6 +145,11 @@ class Plugin {
 
 		// Register this as a singleton on the container.
 		singleton( static::class, $this );
+
+		// Store key plugin values in the container for DI-friendly access.
+		set_var( 'fakerpress.slug', static::$slug );
+		set_var( 'fakerpress.version', static::VERSION );
+		set_var( 'fakerpress.file', static::$_file );
 
 		$this->bind_implementations();
 
@@ -208,29 +216,54 @@ class Plugin {
 	}
 
 	/**
-	 * Return a Path relative to the plugin root
+	 * Returns the plugin slug.
+	 *
+	 * @since 0.9.0
+	 *
+	 * @return string The plugin slug.
+	 */
+	public function get_slug(): string {
+		return static::$slug;
+	}
+
+	/**
+	 * Returns the plugin version.
+	 *
+	 * @since 0.9.0
+	 *
+	 * @return string The plugin version.
+	 */
+	public function get_version(): string {
+		return static::VERSION;
+	}
+
+	/**
+	 * Return a Path relative to the plugin root.
 	 *
 	 * @since 0.1.0
+	 * @deprecated 0.9.0 Use `make( Plugin::class )->plugin_path` instead.
 	 *
 	 * @uses plugin_dir_path
 	 *
-	 * @param string $append A string to be appended to the root path
+	 * @param string $append A string to be appended to the root path.
 	 *
-	 * @return string         The path after being appended by the variable
+	 * @return string The path after being appended by the variable.
 	 */
 	public static function path( string $append = '' ): string {
 		return (string) make( static::class )->plugin_path . str_replace( '/', DIRECTORY_SEPARATOR, $append );
 	}
 
 	/**
-	 * Return a URL relative to the plugin root
+	 * Return a URL relative to the plugin root.
 	 *
 	 * @since 0.1.0
+	 * @deprecated 0.9.0 Use `make( Plugin::class )->plugin_url` instead.
+	 *
 	 * @uses plugins_url
 	 *
-	 * @param string $file A string to be appended to the root url
+	 * @param string $file A string to be appended to the root url.
 	 *
-	 * @return string         The url to the file
+	 * @return string The url to the file.
 	 */
 	public static function url( string $file = '' ): string {
 		return (string) make( static::class )->plugin_url . $file;
@@ -245,10 +278,10 @@ class Plugin {
 	 * @uses wp_parse_args
 	 * @uses add_query_arg
 	 *
-	 * @param string|array $args Arguments for the admin URL
-	 * @param string       $hash Hash for the admin URL
+	 * @param string|array $args Query arguments for the admin URL, merged over `page=fakerpress`.
+	 * @param string|false $hash Fragment to append after `#`, or false for none.
 	 *
-	 * @return string       The url to the file
+	 * @return string The FakerPress admin page URL.
 	 */
 	public static function admin_url( $args = '', $hash = false ): string {
 		/**
@@ -272,19 +305,35 @@ class Plugin {
 	 * @since 0.3.2
 	 * @uses esc_url_raw
 	 *
-	 * @param string $path Hash for the admin URL
+	 * @param string $path Path to append to the project website domain.
 	 *
-	 * @return string         The url the external website with the appended $path
+	 * @return string The url the external website with the appended $path.
 	 */
 	public static function ext_site_url( string $path = '/' ): string {
 		return esc_url_raw( static::$_ext_domain . ( ! empty( $path ) ? $path : '/' ), [ 'http', 'https' ] );
 	}
 
-	public static function get( $name, $default = false ) {
+	/**
+	 * Gets a plugin option, including one nested inside the stored options array.
+	 *
+	 * @param string|array $name    Option index, or a list of nested indexes in order.
+	 * @param mixed        $default Value returned when the option is not set.
+	 *
+	 * @return mixed The option value or the default.
+	 */
+	public static function get( $name, $default = false ) { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound -- Public API, renaming the parameter breaks callers that pass it as a named argument.
 		$options = static::all();
 		return get( $options, $name, $default );
 	}
 
+	/**
+	 * Sets a plugin option, creating the nested arrays along the way, and saves the options.
+	 *
+	 * @param string|array $name  Option index, or a list of nested indexes in order.
+	 * @param mixed        $value Value to store.
+	 *
+	 * @return bool Whether `update_option()` changed the stored options.
+	 */
 	public static function update( $name = null, $value = false ) {
 		$options = static::all();
 		$opts    = [];
@@ -309,10 +358,22 @@ class Plugin {
 		return update_option( static::$slug . '-plugin-options', $options );
 	}
 
+	/**
+	 * Placeholder for removing a plugin option; not implemented yet and does nothing.
+	 *
+	 * @param string|array|null $name Option index, or a list of nested indexes in order.
+	 *
+	 * @return void
+	 */
 	public static function remove( $name = null ) {
 		// @TODO
 	}
 
+	/**
+	 * Gets every stored plugin option.
+	 *
+	 * @return array The `fakerpress-plugin-options` option, an empty array when it is not set.
+	 */
 	public static function all() {
 		$defaults = [];
 

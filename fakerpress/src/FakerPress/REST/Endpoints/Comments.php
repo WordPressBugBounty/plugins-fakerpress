@@ -120,6 +120,7 @@ class Comments extends Abstract_Endpoint {
 		if ( ! current_user_can( $permission_required ) ) {
 			return $this->error_response(
 				sprintf(
+					/* translators: %s: Name of the WordPress capability the current user is missing. */
 					__( 'Your user needs the "%s" permission to generate comments.', 'fakerpress' ),
 					$permission_required
 				),
@@ -160,7 +161,8 @@ class Comments extends Abstract_Endpoint {
 			$results,
 			$batch_info,
 			$formatted_links,
-			$end_time - $start_time
+			$end_time - $start_time,
+			'comment'
 		);
 
 		$message = $this->format_batched_success_message(

@@ -1,17 +1,44 @@
 <?php
+/**
+ * AJAX handlers that back the Select2 search fields.
+ *
+ * @package FakerPress
+ */
 
 namespace FakerPress;
 
+/**
+ * Class Ajax.
+ *
+ * Handles AJAX requests for Select2 search fields.
+ *
+ * @since 0.1.0
+ *
+ * @package FakerPress
+ */
 class Ajax {
 
+	/**
+	 * Register AJAX hooks.
+	 *
+	 * @since 0.1.0
+	 */
 	public function __construct() {
-		add_action( 'wp_ajax_' . Plugin::$slug . '.select2-WP_Query', [ __CLASS__, 'query_posts' ] );
-		add_action( 'wp_ajax_' . Plugin::$slug . '.search_authors', [ __CLASS__, 'search_authors' ] );
-		add_action( 'wp_ajax_' . Plugin::$slug . '.select2-search_terms', [ __CLASS__, 'search_terms' ] );
+		add_action( 'wp_ajax_' . Plugin::$slug . '.select2-WP_Query', [ $this, 'query_posts' ] );
+		add_action( 'wp_ajax_' . Plugin::$slug . '.search_authors', [ $this, 'search_authors' ] );
+		add_action( 'wp_ajax_' . Plugin::$slug . '.select2-search_terms', [ $this, 'search_terms' ] );
 	}
 
-
-	public static function search_terms( $request = null ) {
+	/**
+	 * Handles term search AJAX requests.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param array|null $request Optional request data override.
+	 *
+	 * @return object|void Response object or void when sending JSON.
+	 */
+	public function search_terms( $request = null ) {
 		$response = (object) [
 			'status'  => false,
 			'message' => __( 'Your request has failed', 'fakerpress' ),
@@ -29,7 +56,7 @@ class Ajax {
 				'search'     => get_request_var( 'search', '' ),
 				'post_type'  => get_request_var( 'post_type' ),
 				'taxonomies' => get_request_var( 'taxonomies', [] ),
-				'exclude'    => get_request_var( 'exclude', [] ),
+				'exclude'    => get_request_var( 'exclude', [] ), // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_exclude -- Request field read into the search object, not a query argument.
 				'page'       => absint( get_request_var( 'page', 0 ) ),
 				'page_limit' => absint( get_request_var( 'page_limit', 10 ) ),
 				'nonce'      => get_request_var( 'nonce' ),
@@ -70,14 +97,14 @@ class Ajax {
 		}
 
 		if ( ! empty( $request->exclude ) ) {
-			$args['exclude'] = $request->exclude;
+			$args['exclude'] = $request->exclude; // phpcs:ignore WordPressVIPMinimum.Performance.WPQueryParams.PostNotIn_exclude -- Paginated Select2 term search, the caller passes the term IDs to leave out.
 		}
 
 		$response->args = $args;
 
-		$terms = get_terms( (array) $request->taxonomies, $args );
+		$terms = get_terms( array_merge( $args, [ 'taxonomy' => (array) $request->taxonomies ] ) );
 
-		// Setting up Select2
+		// Setting up Select2.
 		foreach ( $terms as $term ) {
 			$response->results[] = [
 				'id'       => $term->term_id,
@@ -94,7 +121,16 @@ class Ajax {
 		return ( is_ajax() ? wp_send_json( $response ) : $response );
 	}
 
-	public static function query_posts( $request = null ) {
+	/**
+	 * Handles post query AJAX requests.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param array|null $request Optional request data override.
+	 *
+	 * @return object|void Response object or void when sending JSON.
+	 */
+	public function query_posts( $request = null ) {
 		$response = (object) [
 			'status'  => false,
 			'message' => __( 'Your request has failed', 'fakerpress' ),
@@ -106,13 +142,14 @@ class Ajax {
 			return ( is_ajax() ? wp_send_json( $response ) : $response );
 		}
 
-		$request = (object) $_POST;
-
-		if ( empty( $request->nonce ) || ! wp_verify_nonce( $request->nonce, Plugin::$slug . '-select2-WP_Query' ) ) {
+		// Verify the nonce before reading anything else from the request.
+		if ( empty( $_POST['nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['nonce'] ) ), Plugin::$slug . '-select2-WP_Query' ) ) {
 			$response->message = esc_attr__( 'Invalid nonce verification', 'fakerpress' );
 
 			return ( is_ajax() ? wp_send_json( $response ) : $response );
 		}
+
+		$request = (object) $_POST;
 
 		if ( ! current_user_can( 'publish_posts' ) ) {
 			$response->message = esc_attr__( 'Your user needs the "publish_posts" permissions to use WP_Query.', 'fakerpress' );
@@ -124,10 +161,10 @@ class Ajax {
 			$request->query['post_type'] = array_map( 'trim', (array) explode( ',', $request->query['post_type'] ) );
 		}
 
-		// If post_type is empty or not set, default to all public post types
+		// If post_type is empty or not set, default to all public post types.
 		if ( empty( $request->query['post_type'] ) ) {
 			$request->query['post_type'] = get_post_types( [ 'public' => true ], 'names' );
-			// Remove attachment post type as it's handled separately
+			// Remove attachment post type as it's handled separately.
 			unset( $request->query['post_type']['attachment'] );
 		}
 
@@ -153,7 +190,16 @@ class Ajax {
 		return ( is_ajax() ? wp_send_json( $response ) : $response );
 	}
 
-	public static function search_authors( $request = null ) {
+	/**
+	 * Handles author search AJAX requests.
+	 *
+	 * @since 0.1.0
+	 *
+	 * @param array|null $request Optional request data override.
+	 *
+	 * @return object|void Response object or void when sending JSON.
+	 */
+	public function search_authors( $request = null ) {
 		$response = (object) [
 			'status'  => false,
 			'message' => __( 'Your request has failed', 'fakerpress' ),

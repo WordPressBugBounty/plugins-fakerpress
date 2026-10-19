@@ -1,16 +1,27 @@
 <?php
+/**
+ * Generation module for comments.
+ *
+ * @package FakerPress
+ */
 
 namespace FakerPress\Module;
 
 use FakerPress;
+use WP_Error;
+
 use function FakerPress\make;
 use function FakerPress\get;
 use function FakerPress\is_truthy;
-use WP_Error;
 
+/**
+ * Generates comments with the WP_Comment provider, flags them as FakerPress content and adds their meta.
+ */
 class Comment extends Abstract_Module {
 	/**
-	 * @inheritDoc
+	 * Faker providers this module needs besides the WP_Comment provider.
+	 *
+	 * @var string[]
 	 */
 	protected $dependencies = [
 		FakerPress\ThirdParty\Faker\Provider\Lorem::class,
@@ -19,7 +30,9 @@ class Comment extends Abstract_Module {
 	];
 
 	/**
-	 * @inheritDoc
+	 * Faker provider that generates the comment fields.
+	 *
+	 * @var string
 	 */
 	protected $provider_class = FakerPress\Provider\WP_Comment::class;
 
@@ -37,11 +50,15 @@ class Comment extends Abstract_Module {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Fetches the IDs of every comment flagged as created by FakerPress.
+	 *
+	 * @param array $args WP_Comment_Query arguments that override the defaults.
+	 *
+	 * @return int[] Comment IDs.
 	 */
 	public static function fetch( array $args = [] ): array {
 		$defaults = [
-			'meta_query' => [
+			'meta_query' => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Lists every item FakerPress generated, found by its flag meta (bulk delete, reuse of generated images).
 				[
 					'key'   => static::get_flag(),
 					'value' => true,
@@ -64,7 +81,13 @@ class Comment extends Abstract_Module {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Permanently deletes a comment, or a list of comments, created by FakerPress.
+	 *
+	 * Comments without the FakerPress flag are left alone.
+	 *
+	 * @param int|\WP_Comment|array $comment Comment ID, comment object, or a list of either.
+	 *
+	 * @return array|bool Results keyed by comment ID for a list, otherwise whether the comment was deleted.
 	 */
 	public static function delete( $comment ) {
 		if ( is_array( $comment ) ) {
@@ -101,7 +124,13 @@ class Comment extends Abstract_Module {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Inserts the comment with `wp_insert_comment()` and flags it as created by FakerPress.
+	 *
+	 * @param mixed           $response Response so far, ignored.
+	 * @param array           $data     Generated comment fields for `wp_insert_comment()`.
+	 * @param Abstract_Module $module   Module being saved.
+	 *
+	 * @return int|false The new comment ID, or false when the insert failed.
 	 */
 	public function filter_save_response( $response, array $data, Abstract_Module $module ) {
 		$comment_id = wp_insert_comment( $data );
@@ -110,7 +139,7 @@ class Comment extends Abstract_Module {
 			return false;
 		}
 
-		// Flag the Object as FakerPress
+		// Flag the Object as FakerPress.
 		update_comment_meta( $comment_id, static::get_flag(), 1 );
 
 		return $comment_id;
@@ -121,12 +150,12 @@ class Comment extends Abstract_Module {
 	 *
 	 * @since 0.6.4
 	 *
-	 * @throws \Exception
+	 * @throws \Exception Exceptions from the Faker generators are not caught.
 	 *
 	 * @param int   $qty     The quantity of comments to generate.
 	 * @param array $request The request data.
 	 *
-	 * @return array|WP_Error
+	 * @return array|WP_Error IDs of the created comments, or a WP_Error when the quantity is below one.
 	 */
 	public function parse_request( int $qty, array $request = [] ) {
 		if ( 0 === $qty || ! is_numeric( $qty ) || $qty < 1 ) {

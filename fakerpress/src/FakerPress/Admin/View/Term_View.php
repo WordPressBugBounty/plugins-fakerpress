@@ -1,4 +1,9 @@
 <?php
+/**
+ * Admin view for the terms generator page.
+ *
+ * @package FakerPress
+ */
 
 namespace FakerPress\Admin\View;
 
@@ -9,7 +14,7 @@ use function FakerPress\get_request_var;
 use function FakerPress\make;
 
 /**
- * Class Post_View
+ * Admin view for the terms generator page: React mount point plus the legacy form handler.
  *
  * @since 0.6.4
  *
@@ -45,13 +50,32 @@ class Term_View extends Abstract_View {
 	}
 
 	/**
-	 * Format the Administration edit link for each term instance.
+	 * @inheritDoc
+	 */
+	protected function get_page_data(): array {
+		$taxonomies = get_taxonomies( [ 'public' => true ], 'objects' );
+
+		return [
+			'taxonomies' => array_map(
+				static function ( $tax ) {
+					return [
+						'name'  => $tax->name,
+						'label' => $tax->label,
+					];
+				},
+				$taxonomies 
+			),
+		];
+	}
+
+	/**
+	 * Formats a generated term for the results notice. Terms get no link, only their ID.
 	 *
 	 * @since 0.6.0
 	 *
-	 * @param int $id ID of the post
+	 * @param int $id ID of the term.
 	 *
-	 * @return string
+	 * @return int The term ID.
 	 */
 	public function format_link( $id ) {
 		return absint( $id );
@@ -66,7 +90,7 @@ class Term_View extends Abstract_View {
 			return;
 		}
 
-		// After this point we are safe to say that we have a good POST request
+		// After this point we are safe to say that we have a good POST request.
 		$results = (array) make( Term::class )->parse_request( null, get_request_var( Plugin::$slug, [] ) );
 
 		if ( is_string( $results ) ) {
@@ -74,6 +98,7 @@ class Term_View extends Abstract_View {
 		} else {
 			return Admin::add_message(
 				sprintf(
+					/* translators: 1: Number of items created, 2: Item type label (singular or plural), 3: Comma-separated links to the new items. */
 					__( 'Faked %1$d new %2$s: [ %3$s ]', 'fakerpress' ),
 					count( $results ),
 					_n( 'term', 'terms', count( $results ), 'fakerpress' ),

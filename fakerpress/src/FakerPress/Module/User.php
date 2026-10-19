@@ -1,17 +1,29 @@
 <?php
+/**
+ * Generation module for users.
+ *
+ * @package FakerPress
+ */
 
 namespace FakerPress\Module;
 
-use function FakerPress\get;
-use function FakerPress\make;
 use FakerPress;
 use WP_Error;
 use WP_User;
 
+use function FakerPress\get;
+use function FakerPress\make;
+use function FakerPress\is_truthy;
+
+/**
+ * Generates users with the WP_User provider, sets their role, flags them as FakerPress content and adds their meta.
+ */
 class User extends Abstract_Module {
 
 	/**
-	 * @inheritDoc
+	 * Faker providers this module needs besides the WP_User provider.
+	 *
+	 * @var string[]
 	 */
 	protected $dependencies = [
 		FakerPress\ThirdParty\Faker\Provider\Lorem::class,
@@ -20,7 +32,9 @@ class User extends Abstract_Module {
 	];
 
 	/**
-	 * @inheritDoc
+	 * Faker provider that generates the user fields.
+	 *
+	 * @var string
 	 */
 	protected $provider_class = FakerPress\Provider\WP_User::class;
 
@@ -38,12 +52,16 @@ class User extends Abstract_Module {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Fetches the IDs of every user flagged as created by FakerPress.
+	 *
+	 * @param array $args WP_User_Query arguments that override the defaults.
+	 *
+	 * @return int[] User IDs.
 	 */
 	public static function fetch( array $args = [] ): array {
 		$defaults = [
 			'fields'     => 'ID',
-			'meta_query' => [
+			'meta_query' => [ // phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Lists every item FakerPress generated, found by its flag meta (bulk delete, reuse of generated images).
 				[
 					'key'   => static::get_flag(),
 					'value' => true,
@@ -59,7 +77,13 @@ class User extends Abstract_Module {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Deletes a user, or a list of users, created by FakerPress, reassigning their content to the current user.
+	 *
+	 * Users without the FakerPress flag are left alone.
+	 *
+	 * @param int|\WP_User|array $user User ID, user object, or a list of either.
+	 *
+	 * @return array|bool Results keyed by user ID for a list, otherwise whether the user was deleted.
 	 */
 	public static function delete( $user ) {
 		if ( is_array( $user ) ) {
@@ -96,7 +120,13 @@ class User extends Abstract_Module {
 	}
 
 	/**
-	 * @inheritDoc
+	 * Inserts the user with `wp_insert_user()`, applies the generated role and flags the user as created by FakerPress.
+	 *
+	 * @param mixed           $response Response so far, ignored.
+	 * @param array           $data     Generated user fields for `wp_insert_user()`, plus `role`.
+	 * @param Abstract_Module $module   Module being saved.
+	 *
+	 * @return int|false The new user ID, or false when the insert failed.
 	 */
 	public function filter_save_response( $response, array $data, Abstract_Module $module ) {
 		$user_id = wp_insert_user( $data );
@@ -105,15 +135,15 @@ class User extends Abstract_Module {
 			return false;
 		}
 
-		// Only set role if needed
+		// Only set role if needed.
 		if ( ! is_null( $data['role'] ) ) {
 			$user = new \WP_User( $user_id );
 
-			// Here we could add in the future the possibility to set multiple roles at once
+			// Here we could add in the future the possibility to set multiple roles at once.
 			$user->set_role( $data['role'] );
 		}
 
-		// Flag the Object as FakerPress
+		// Flag the Object as FakerPress.
 		update_user_meta( $user_id, static::get_flag(), 1 );
 
 		return $user_id;
@@ -124,20 +154,21 @@ class User extends Abstract_Module {
 	 *
 	 * @since 0.6.4
 	 *
-	 * @throws \Exception
+	 * @throws \Exception Exceptions from the Faker generators are not caught.
 	 *
 	 * @param int   $qty     The quantity of users to generate.
 	 * @param array $request The request data.
 	 *
-	 * @return array|WP_Error
+	 * @return array|WP_Error IDs of the created users, or a WP_Error when the quantity is below one.
 	 */
 	public function parse_request( int $qty, array $request = [] ) {
 		if ( 0 === $qty || ! is_numeric( $qty ) || $qty < 1 ) {
 			return new WP_Error( 'fakerpress_zero_users', __( 'Zero is not a good number of users to fake...', 'fakerpress' ) );
 		}
 
+		// use_html: the legacy form posts 'on'; the REST API and the React admin send a boolean.
 		$description_size      = get( $request, 'description_size', [ 1, 5 ] );
-		$description_use_html  = get( $request, 'use_html', 'off' ) === 'on';
+		$description_use_html  = is_truthy( get( $request, 'use_html', 'off' ) );
 		$description_html_tags = array_map( 'trim', explode( ',', get( $request, 'html_tags', '' ) ) );
 
 		if ( ! function_exists( 'get_editable_roles' ) ) {

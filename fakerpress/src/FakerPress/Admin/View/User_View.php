@@ -1,4 +1,9 @@
 <?php
+/**
+ * Admin view for the users generator page.
+ *
+ * @package FakerPress
+ */
 
 namespace FakerPress\Admin\View;
 
@@ -9,7 +14,7 @@ use function FakerPress\get_request_var;
 use function FakerPress\make;
 
 /**
- * Class Post_View
+ * Admin view for the users generator page: React mount point plus the legacy form handler.
  *
  * @since 0.6.4
  *
@@ -45,13 +50,34 @@ class User_View extends Abstract_View {
 	}
 
 	/**
-	 * Format the Administration edit link for each comment instance.
+	 * @inheritDoc
+	 */
+	protected function get_page_data(): array {
+		$roles = wp_roles()->get_names();
+
+		return [
+			'roles'     => array_map(
+				static function ( $label, $value ) {
+					return [
+						'value' => $value,
+						'label' => $label,
+					];
+				},
+				$roles,
+				array_keys( $roles ) 
+			),
+			'html_tags' => [ 'h3', 'h4', 'h5', 'h6', 'p' ],
+		];
+	}
+
+	/**
+	 * Format the Administration edit link for each user instance.
 	 *
 	 * @since 0.6.0
 	 *
-	 * @param int $id ID of the post
+	 * @param int $id ID of the user.
 	 *
-	 * @return string
+	 * @return string Link to the user edit screen, labelled with the ID.
 	 */
 	public function format_link( $id ) {
 		return '<a href="' . esc_url( get_edit_user_link( $id ) ) . '">' . absint( $id ) . '</a>';
@@ -66,12 +92,13 @@ class User_View extends Abstract_View {
 			return;
 		}
 
-		// After this point we are safe to say that we have a good POST request
+		// After this point we are safe to say that we have a good POST request.
 		$results = (array) make( User::class )->parse_request( null, get_request_var( Plugin::$slug, [] ) );
 
 		if ( ! empty( $results ) ) {
 			return Admin::add_message(
 				sprintf(
+					/* translators: 1: Number of items created, 2: Item type label (singular or plural), 3: Comma-separated links to the new items. */
 					__( 'Faked %1$d new %2$s: [ %3$s ]', 'fakerpress' ),
 					count( $results ),
 					_n( 'user', 'users', count( $results ), 'fakerpress' ),

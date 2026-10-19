@@ -1,29 +1,85 @@
 <?php
+/**
+ * Legacy HTML form field builder used by the pre-React admin pages.
+ *
+ * @package FakerPress
+ */
+
 namespace FakerPress;
 
 use FakerPress\Provider\HTML;
 use FakerPress\Utils;
 
+/**
+ * Builds the HTML for the legacy admin form fields (inputs, dropdowns, ranges, meta and taxonomy rules).
+ *
+ * @deprecated 0.9.0 Use React-based admin components instead.
+ */
 class Field {
 
-	const plugin = 'fakerpress';
+	const plugin = 'fakerpress'; // phpcs:ignore Generic.NamingConventions.UpperCaseConstantName.ClassConstantNotUpperCase -- Public constant on a deprecated class, renaming it breaks Field::plugin references.
 
+	/**
+	 * Field type, one of the values in Field::$valid_types.
+	 *
+	 * @var string
+	 */
 	public $type = 'raw';
 
+	/**
+	 * ID parts of the field, joined by Field::id() to build the HTML id.
+	 *
+	 * @var array
+	 */
 	public $id;
 
+	/**
+	 * Field definition passed to the constructor.
+	 *
+	 * @var object
+	 */
 	public $field;
 
+	/**
+	 * Container settings; declared for compatibility, not set by this class.
+	 *
+	 * @var mixed
+	 */
 	public $container;
 
+	/**
+	 * Header cells printed by Field::start_table() when the container has the `table` block.
+	 *
+	 * @var array
+	 */
 	public $heads;
 
+	/**
+	 * Whether the field is wrapped in a container row; not read by this class.
+	 *
+	 * @var bool
+	 */
 	public $has_container = true;
 
+	/**
+	 * Whether the field markup is wrapped in a fieldset; not read by this class.
+	 *
+	 * @var bool
+	 */
 	public $has_wrap = true;
 
+	/**
+	 * Whether the field shows a label; Field::parse() turns it off for heading, meta and taxonomy containers.
+	 *
+	 * @var bool
+	 */
 	public $has_label = false;
 
+	/**
+	 * Default container settings, merged into the settings given to the constructor and to Field::parse().
+	 *
+	 * @var array
+	 */
 	public static $default_container = [
 		'label'       => '',
 		'description' => '',
@@ -37,6 +93,11 @@ class Field {
 		'blocks'      => [ 'label', 'fields', 'description', 'actions' ],
 	];
 
+	/**
+	 * Field types that have a matching `type_*` builder.
+	 *
+	 * @var string[]
+	 */
 	public static $valid_types = [
 		'heading',
 		'input',
@@ -63,7 +124,7 @@ class Field {
 	public $error;
 
 	/**
-	 *
+	 * Callback that Field::output() runs instead of the type builder, when callable.
 	 *
 	 * @since 0.6.1
 	 *
@@ -72,7 +133,7 @@ class Field {
 	public $callback;
 
 	/**
-	 *
+	 * Whether the field renders; Field::output() returns false when it is falsy.
 	 *
 	 * @since 0.6.1
 	 *
@@ -81,7 +142,7 @@ class Field {
 	public $conditional;
 
 	/**
-	 *
+	 * Label text from the container settings.
 	 *
 	 * @since 0.6.1
 	 *
@@ -90,7 +151,7 @@ class Field {
 	public $label;
 
 	/**
-	 *
+	 * Description text from the container settings.
 	 *
 	 * @since 0.6.1
 	 *
@@ -99,7 +160,7 @@ class Field {
 	public $description;
 
 	/**
-	 *
+	 * Extra HTML attributes for the container row.
 	 *
 	 * @since 0.6.1
 	 *
@@ -108,7 +169,7 @@ class Field {
 	public $attributes;
 
 	/**
-	 *
+	 * Submit buttons for the container, keyed by action name with the label as value.
 	 *
 	 * @since 0.6.1
 	 *
@@ -117,7 +178,7 @@ class Field {
 	public $actions;
 
 	/**
-	 *
+	 * Blocks the container renders (label, fields, description, actions, heading, table).
 	 *
 	 * @since 0.6.1
 	 *
@@ -126,7 +187,7 @@ class Field {
 	public $blocks;
 
 	/**
-	 *
+	 * CSS classes for the container row.
 	 *
 	 * @since 0.6.1
 	 *
@@ -135,7 +196,7 @@ class Field {
 	public $class;
 
 	/**
-	 *
+	 * HTML attributes for the cell or fieldset that wraps the inputs.
 	 *
 	 * @since 0.6.1
 	 *
@@ -143,11 +204,18 @@ class Field {
 	 */
 	public $wrap;
 
+	/**
+	 * Sets up a field of the given type with its container settings.
+	 *
+	 * @param string       $type      Field type; anything not in Field::$valid_types becomes `raw`.
+	 * @param string|array $field     Field definition, or a string used as the field ID.
+	 * @param array|object $container Container settings, merged over Field::$default_container.
+	 */
 	public function __construct( $type, $field, $container = [] ) {
-		// Default Error Structure
+		// Default Error Structure.
 		$this->error = false;
 
-		// Non Valid types are just set to Raw
+		// Non Valid types are just set to Raw.
 		if ( ! self::is_valid_type( $type ) ) {
 			$type = 'raw';
 		}
@@ -157,13 +225,13 @@ class Field {
 				'id' => $field,
 			];
 		} else {
-			// Setup the Container if required
+			// Setup the Container if required.
 			$this->field = (object) $field;
 		}
 
 		$container = (object) wp_parse_args( $container, self::$default_container );
 
-		// set the ID
+		// Set the ID.
 		$this->type = $type;
 		if ( ! isset( $this->field->id ) ) {
 			$this->id = (array) Utils::abbr( uniqid( '', true ) );
@@ -183,23 +251,34 @@ class Field {
 		$this->wrap        = $container->wrap;
 	}
 
-	public function output( $print = false ) {
+	/**
+	 * Renders the field through its callback or its `type_*` builder.
+	 *
+	 * When a callback is set it runs instead and nothing is returned. The builder output passes
+	 * through the `fakerpress/fields/field-output-{$type}` filter.
+	 *
+	 * @param bool $print Whether to echo the HTML instead of returning it.
+	 *
+	 * @return string|false|null The field HTML when not printing, false when the field is disabled or
+	 *                           its type is invalid, null after printing or running the callback.
+	 */
+	public function output( $print = false ) { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.printFound -- Public API, renaming the parameter breaks callers that pass it as a named argument.
 		if ( ! $this->conditional ) {
 			return false;
 		}
 
 		if ( $this->callback && is_callable( $this->callback ) ) {
-			// if there's a callback, run it
+			// If there's a callback, run it.
 			call_user_func( $this->callback );
 		} elseif ( in_array( $this->type, self::$valid_types ) ) {
-			// the specified type exists, run the appropriate method
+			// The specified type exists, run the appropriate method.
 			$field = call_user_func_array( [ __CLASS__, 'type_' . $this->type ], [ $this->field, $this, 'string', [] ] );
 
-			// filter the output
+			// Filter the output.
 			$field = apply_filters( self::plugin . '/fields/field-output-' . $this->type, $field, $this );
 
 			if ( $print ) {
-				echo balanceTags( $field );
+				echo balanceTags( $field ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped, StellarWP.XSS.EscapeOutput.OutputNotEscaped -- Field markup from the type_* builders, which escape attribute values through Utils::attr().
 			} else {
 				return $field;
 			}
@@ -208,6 +287,18 @@ class Field {
 		}
 	}
 
+	/**
+	 * Wraps field markup in the container table row, label, wrapper, description and actions.
+	 *
+	 * The blocks listed in the container's `blocks` setting decide which pieces are printed, and
+	 * array blocks before and after `fields` become extra table cells.
+	 *
+	 * @param string|array $content Field HTML, a list of HTML lines, or a list of such lists (one row each).
+	 * @param string       $output  `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html    HTML lines to append the markup to.
+	 *
+	 * @return string|array The wrapped field markup, as one string or a list of HTML lines.
+	 */
 	public function build( $content, $output = 'string', $html = [] ) {
 		$content     = (array) $content;
 		$key         = array_search( 'fields', $this->blocks );
@@ -282,6 +373,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Opens the table used by multi-row fields, with its optional header cells.
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The opening table markup, as one string or a list of HTML lines.
+	 */
 	public static function start_table( $container, $output = 'string', $html = [] ) {
 		$html[] = '<table class="' . Utils::abbr( 'table-' . implode( '-', $container->id ) ) . '">';
 		if ( ! empty( $container->heads ) ) {
@@ -306,6 +406,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Closes the table opened by Field::start_table().
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The closing table markup, as one string or a list of HTML lines.
+	 */
 	public static function end_table( $container, $output = 'string', $html = [] ) {
 		$html[] = '</tbody>';
 		$html[] = '</table>';
@@ -318,6 +427,17 @@ class Field {
 		}
 	}
 
+	/**
+	 * Opens the table row that holds a field, adding the container classes and attributes.
+	 *
+	 * Containers with the `table` block get no row of their own.
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The opening row markup, as one string or a list of HTML lines.
+	 */
 	public static function start_container( $container, $output = 'string', $html = [] ) {
 		if ( ! is_array( $container->class ) ) {
 			$container->class = (array) $container->class;
@@ -343,6 +463,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Closes the table row opened by Field::start_container().
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The closing row markup, as one string or a list of HTML lines.
+	 */
 	public static function end_container( $container, $output = 'string', $html = [] ) {
 		if ( ! in_array( 'table', $container->blocks ) ) {
 			$html[] = '</tr>';
@@ -356,6 +485,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Wraps field markup in a fieldset with an internal label, used by the meta type templates.
+	 *
+	 * @param string|array $content Field HTML or list of HTML lines; nothing is printed when empty.
+	 * @param object       $field   Field definition, used for its `type` and `label`.
+	 * @param string       $output  `string` to get one HTML string, anything else for the list of HTML lines.
+	 *
+	 * @return string|array The fieldset markup, as one string or a list of HTML lines.
+	 */
 	public static function wrapper( $content = [], $field = [], $output = 'string' ) {
 		$attributes          = (object) [];
 		$attributes->class[] = 'field-wrap';
@@ -378,6 +516,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Opens the cell (and fieldset, when the `fields` block is on) that holds the field inputs.
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The opening cell markup, as one string or a list of HTML lines.
+	 */
 	public static function start_wrap( $container, $output = 'string', $html = [] ) {
 		$container->wrap['class'][] = 'field-wrap';
 		$container->wrap['class'][] = 'type-' . $container->type . '-wrap';
@@ -397,6 +544,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Adds the actions and description blocks and closes the cell opened by Field::start_wrap().
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The closing cell markup, as one string or a list of HTML lines.
+	 */
 	public static function end_wrap( $container, $output = 'string', $html = [] ) {
 		if ( in_array( 'actions', $container->blocks ) ) {
 			$html[] = self::actions( $container );
@@ -421,6 +577,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds the label cell of a field row (a `td` for meta and taxonomy fields, a `th` otherwise).
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The label cell markup, as one string or a list of HTML lines.
+	 */
 	public static function label( $container, $output = 'string', $html = [] ) {
 		$is_td = ( false !== strpos( $container->type, 'meta' ) ) || ( false !== strpos( $container->type, 'taxonomy' ) );
 
@@ -440,6 +605,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds the primary submit buttons listed in the container's `actions` setting.
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The buttons markup, or an empty string or array when there are no actions.
+	 */
 	public static function actions( $container, $output = 'string', $html = [] ) {
 		if ( empty( $container->actions ) ) {
 			return ( 'string' === $output ? '' : [] );
@@ -459,6 +633,15 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds the description paragraph shown under a field.
+	 *
+	 * @param Field|object $container Field (or container object) whose settings drive the markup.
+	 * @param string       $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array        $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array The description markup, as one string or a list of HTML lines.
+	 */
 	public static function description( $container, $output = 'string', $html = [] ) {
 		if ( ! empty( $container->description ) ) {
 			$html[] = '<p class="' . Utils::abbr( 'field-description' ) . '">' . $container->description . '</p>';
@@ -474,18 +657,37 @@ class Field {
 	}
 
 
-	/******************
-	 * Static methods *
-	 ******************/
+	/**
+	 * Checks whether a field type has a builder, using the filtered list of valid types.
+	 *
+	 * @param string|false $type Field type to check.
+	 *
+	 * @return bool Whether the type is valid.
+	 */
 	public static function is_valid_type( $type = false ) {
-		// a list of valid field types, to prevent screwy behaviour
+		// A list of valid field types, to prevent screwy behaviour.
 		return in_array( $type, apply_filters( self::plugin . '/fields/valid_types', self::$valid_types ) );
 	}
 
+	/**
+	 * Builds the form field name, nested under the `fakerpress` request variable.
+	 *
+	 * @param string|array $indexes Name part, or list of nested name parts.
+	 *
+	 * @return string The field name, e.g. `fakerpress[meta][type]`.
+	 */
 	public static function name( $indexes = [] ) {
 		return self::plugin . '[' . implode( '][', (array) $indexes ) . ']';
 	}
 
+	/**
+	 * Builds the HTML id for a field or its container row.
+	 *
+	 * @param string|array $id        ID part, or list of ID parts.
+	 * @param bool         $container Whether to build the id of the container row.
+	 *
+	 * @return string The HTML id, e.g. `fakerpress-field-meta-type`.
+	 */
 	public static function id( $id = [], $container = false ) {
 		if ( ! is_array( $id ) ) {
 			$id = (array) $id;
@@ -496,6 +698,17 @@ class Field {
 		return self::plugin . '-field-' . implode( '-', (array) $id );
 	}
 
+	/**
+	 * Normalizes a field definition and its container for the `type_*` builders.
+	 *
+	 * Fills in the private `_id`, `_name` and `_type` attributes, builds the HTML id and name,
+	 * applies the per-type defaults and the field and container filters, and adds the CSS classes.
+	 *
+	 * @param string|array|object $field     Field definition, or a field type string.
+	 * @param Field|array|object  $container Container settings, passed by reference and normalized in place.
+	 *
+	 * @return object|false The normalized field, or false when a non-string scalar was given.
+	 */
 	public static function parse( $field, &$container = null ) {
 		if ( is_scalar( $field ) ) {
 			if ( ! is_string( $field ) ) {
@@ -509,7 +722,7 @@ class Field {
 			$field = (object) $field;
 		}
 
-		if ( ! is_a( $container, __CLASS__ ) ) {
+		if ( ! ( $container instanceof self ) ) {
 			$container = (object) wp_parse_args( $container, self::$default_container );
 		}
 		if ( ! isset( $container->id ) ) {
@@ -518,24 +731,16 @@ class Field {
 
 		$field = (object) wp_parse_args( $field, ( ! empty( $container->field ) ? $container->field : [] ) );
 
-		// Setup Private Attributes (_*)
-		if ( isset( $field->_id ) ) {
-
-		} elseif ( empty( $field->id ) ) {
-			$field->_id = (array) $container->id;
-		} else {
-			$field->_id = (array) $field->id;
+		// Setup Private Attributes (_*), keeping any that were passed in.
+		if ( ! isset( $field->_id ) ) {
+			$field->_id = empty( $field->id ) ? (array) $container->id : (array) $field->id;
 		}
 
-		if ( isset( $field->_name ) ) {
-
-		} elseif ( ! isset( $field->name ) ) {
-			$field->_name = (array) ( $container->field->name ?? $field->_id );
-		} else {
-			$field->_name = (array) $field->name;
+		if ( ! isset( $field->_name ) ) {
+			$field->_name = isset( $field->name ) ? (array) $field->name : (array) ( $container->field->name ?? $field->_id );
 		}
 
-		// Setup Public Attributes
+		// Setup Public Attributes.
 		if ( empty( $field->type ) ) {
 			$field->type = $container->type;
 		}
@@ -639,9 +844,16 @@ class Field {
 		return $field;
 	}
 
-	/*****************
-	 * Field Methods *
-	 *****************/
+	/**
+	 * Builds an `input` element from the field attributes.
+	 *
+	 * @param array|object|string $field     Field definition (type, attributes, options, value), normalized by Field::parse().
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_input( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -650,7 +862,7 @@ class Field {
 
 		$content[] = '<input' . Utils::attr( $field ) . '/>';
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
@@ -663,26 +875,86 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds a button input; an alias of Field::type_input().
+	 *
+	 * @param array|object|string $field     Field definition (type, attributes, options, value), normalized by Field::parse().
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_button( $field, $container = null, $output = 'string', $html = [] ) {
 		return self::type_input( $field, $container, $output, $html );
 	}
 
+	/**
+	 * Builds a number input; an alias of Field::type_input().
+	 *
+	 * @param array|object|string $field     Field definition (type, attributes, options, value), normalized by Field::parse().
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_number( $field, $container = null, $output = 'string', $html = [] ) {
 		return self::type_input( $field, $container, $output, $html );
 	}
 
+	/**
+	 * Builds a text input; an alias of Field::type_input().
+	 *
+	 * @param array|object|string $field     Field definition (type, attributes, options, value), normalized by Field::parse().
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_text( $field, $container = null, $output = 'string', $html = [] ) {
 		return self::type_input( $field, $container, $output, $html );
 	}
 
+	/**
+	 * Builds a hidden input; an alias of Field::type_input().
+	 *
+	 * @param array|object|string $field     Field definition (type, attributes, options, value), normalized by Field::parse().
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_hidden( $field, $container = null, $output = 'string', $html = [] ) {
 		return self::type_input( $field, $container, $output, $html );
 	}
 
+	/**
+	 * Builds a date input; an alias of Field::type_input().
+	 *
+	 * @param array|object|string $field     Field definition (type, attributes, options, value), normalized by Field::parse().
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_date( $field, $container = null, $output = 'string', $html = [] ) {
 		return self::type_input( $field, $container, $output, $html );
 	}
 
+	/**
+	 * Builds a section heading with an optional description.
+	 *
+	 * @param array|object|string $field     Field definition with `title` and optional `description`.
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_heading( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -695,7 +967,7 @@ class Field {
 			$content[] = '<div class="' . Utils::abbr( 'field-description' ) . '">' . $field->description . '</div>';
 		}
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
@@ -708,6 +980,16 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds one radio input and label per option, checking the option that matches the field value.
+	 *
+	 * @param array|object|string $field     Field definition with `options` (each with `value`, `text` and optional `class`).
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_radio( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -733,7 +1015,7 @@ class Field {
 			$content[] = '<label class="' . Utils::abbr( 'field-label' ) . '" for="' . self::id( $radio->_id ) . '">' . $opt['text'] . '</label><br />';
 		}
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
@@ -746,6 +1028,16 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds one checkbox input and label per option, checking the option that matches the field value.
+	 *
+	 * @param array|object|string $field     Field definition with `options` (each with `value`, `text` and optional `class`).
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_checkbox( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -771,7 +1063,7 @@ class Field {
 			$content[] = '<label class="' . Utils::abbr( 'field-label' ) . '" for="' . self::id( $checkbox->_id ) . '">' . $opt['text'] . '</label><br />';
 		}
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
@@ -784,6 +1076,16 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds a select element, or a hidden input for Select2 when the field is `multiple`.
+	 *
+	 * @param array|object|string $field     Field definition with `options` (each with `text` and `value`, `id` or `ID`).
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_dropdown( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -809,12 +1111,12 @@ class Field {
 				if ( isset( $field->value ) && $field->value === $option['value'] ) {
 					$option['selected'] = true;
 				}
-				$content[] = '<option' . Utils::attr( $option ) . '>' . esc_attr( $option['text'] ) . '</option>';
+				$content[] = '<option' . Utils::attr( $option ) . '>' . esc_html( $option['text'] ) . '</option>';
 			}
 			$content[] = '</select>';
 		}
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
@@ -827,6 +1129,18 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds a pair of min and max number inputs.
+	 *
+	 * The max input starts disabled when it has no value, unless `_prevent_disable` is set.
+	 *
+	 * @param array|object|string $field     Field definition; `min` / `max` are the values, `_min` / `_max` the allowed bounds.
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_range( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -891,7 +1205,7 @@ class Field {
 		$content[] = '<div title="' . esc_attr__( 'To', 'fakerpress' ) . '" class="dashicons dashicons-arrow-right-alt2 dashicon-date" style="display: inline-block;"></div>';
 		$content[] = self::type_input( $max, null, 'string', [] );
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
@@ -904,6 +1218,16 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds the taxonomy rule table: taxonomies, terms, rate and quantity fields.
+	 *
+	 * @param array|object|string $field     Field definition (type, attributes, options, value), normalized by Field::parse().
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_taxonomy( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -1053,7 +1377,7 @@ class Field {
 
 		$content = $table->build( $content );
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
@@ -1066,6 +1390,16 @@ class Field {
 		}
 	}
 
+	/**
+	 * Builds the meta rule table, one row per configured meta, plus the JavaScript templates for each meta type.
+	 *
+	 * @param array|object|string $field     Field definition; `config` holds the configured meta rules and `index` the row number.
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_meta( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -1129,13 +1463,13 @@ class Field {
 			],
 		];
 
-		// Store the Configuration
+		// Store the Configuration.
 		$configuration = $field->config;
 
-		// Prevents Unwanted Attributes
+		// Prevents Unwanted Attributes.
 		unset( $field->config );
 
-		// Makes Sure we at least have some configuration to avoid bugs
+		// Makes Sure we at least have some configuration to avoid bugs.
 		if ( empty( $configuration ) ) {
 			$configuration = [ true ];
 		}
@@ -1184,7 +1518,7 @@ class Field {
 			$containers->conf->id[]        = 'conf';
 			$containers->conf->type       .= '_conf';
 			$containers->conf->label       = __( 'Configuration', 'fakerpress' );
-			$containers->conf->description = __( '', 'fakerpress' );
+			$containers->conf->description = '';
 			$containers->conf->class       = [ 'meta_conf-container' ];
 			$containers->conf->blocks      = $container_blocks;
 			$containers->conf->attributes  = [
@@ -1201,13 +1535,13 @@ class Field {
 
 		$content = $table->build( $content );
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
 		}
 
-		// Creates Templates for generating Meta via JavaScript
+		// Creates Templates for generating Meta via JavaScript.
 		foreach ( $type->options as $key => $ftype ) {
 			$is_callable = ( isset( $ftype->template ) && is_callable( $ftype->template ) );
 			$html[]      = '<script type="text/html" data-rel="' . self::id( $container->id, true ) . '" class="' . Utils::abbr( 'template-' . $ftype->value ) . '"' . ( $is_callable ? ' data-callable' : '' ) . '>';
@@ -1224,6 +1558,12 @@ class Field {
 		}
 	}
 
+	/**
+	 * Gets the meta types offered by the meta field, each with a template callback for its settings.
+	 *
+	 * @return object Meta types keyed by slug, each an object with `value`, `text` and `template`,
+	 *                filtered by `fakerpress/fields/meta_types`.
+	 */
 	public static function get_meta_types() {
 		$types = (object) [];
 
@@ -1264,7 +1604,7 @@ class Field {
 		$types->numbers = [
 			'value'    => 'numbers',
 			'text'     => __( 'Number', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$range        = clone $field;
 				$range->_id   = [ 'meta', 'number' ];
 				$range->_name = [ 'meta', 'number' ];
@@ -1283,7 +1623,7 @@ class Field {
 		$types->wp_query = [
 			'value'    => 'wp_query',
 			'text'     => __( 'WP_Query', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$query              = clone $field;
 				$query->_id         = [ 'meta', 'query' ];
 				$query->_name       = [ 'meta', 'query' ];
@@ -1303,7 +1643,7 @@ class Field {
 		$types->attachment = [
 			'value'    => 'attachment',
 			'text'     => __( 'Attachment', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$store              = clone $field;
 				$store->_id         = [ 'meta', 'store' ];
 				$store->_name       = [ 'meta', 'store' ];
@@ -1360,7 +1700,7 @@ class Field {
 				$html[] = Field::wrapper( Field::type_dropdown( $providers, null, 'string' ), $providers );
 				$html[] = Field::wrapper( Field::type_number( $default->weight, null, 'string' ), $default->weight );
 
-				// Image Dimensions
+				// Image Dimensions.
 				$html[] = Field::wrapper( Field::type_range( $size_width, null, 'string' ), $size_width );
 				$html[] = Field::wrapper( Field::type_range( $size_height, null, 'string' ), $size_height );
 
@@ -1371,7 +1711,7 @@ class Field {
 		$types->elements = [
 			'value'    => 'elements',
 			'text'     => __( 'Elements', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$tags                   = clone $field;
 				$tags->_id              = [ 'meta', 'elements' ];
 				$tags->_name            = [ 'meta', 'elements' ];
@@ -1381,7 +1721,7 @@ class Field {
 				$tags->{'data-tags'}    = true;
 				$tags->class            = [];
 				$tags->placeholder      = __( 'Type all possible elements (Tab or Return)', 'fakerpress' );
-				$tags->label            = __( '', 'fakerpress' );
+				$tags->label            = '';
 
 				$html[] = Field::wrapper( Field::type_dropdown( $tags, null, 'string' ), $tags );
 				$html[] = Field::wrapper( Field::type_range( $default->qty, null, 'string' ), $default->qty );
@@ -1395,7 +1735,7 @@ class Field {
 		$types->letter = [
 			'value'    => 'letter',
 			'text'     => __( 'Letter', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function () use ( $default ) {
 				$html[] = Field::wrapper( Field::type_number( $default->weight, null, 'string' ), $default->weight );
 
 				return implode( "\r\n", $html );
@@ -1405,7 +1745,7 @@ class Field {
 		$types->words = [
 			'value'    => 'words',
 			'text'     => __( 'Words', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function () use ( $default ) {
 
 				$html[] = Field::wrapper( Field::type_range( $default->qty, null, 'string' ), $default->qty );
 				$html[] = Field::wrapper( Field::type_number( $default->weight, null, 'string' ), $default->weight );
@@ -1417,7 +1757,7 @@ class Field {
 		$types->text = [
 			'value'    => 'text',
 			'text'     => __( 'Text', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$text          = clone $field;
 				$text->_id     = [ 'meta', 'text_type' ];
 				$text->_name   = [ 'meta', 'text_type' ];
@@ -1451,7 +1791,7 @@ class Field {
 		$types->html = [
 			'value'    => 'html',
 			'text'     => __( 'HTML', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$elements                   = clone $field;
 				$elements->_id              = [ 'meta', 'elements' ];
 				$elements->_name            = [ 'meta', 'elements' ];
@@ -1474,7 +1814,7 @@ class Field {
 		$types->lexify = [
 			'value'    => 'lexify',
 			'text'     => __( 'Lexify', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$template              = clone $field;
 				$template->_id         = [ 'meta', 'template' ];
 				$template->_name       = [ 'meta', 'template' ];
@@ -1493,7 +1833,7 @@ class Field {
 		$types->asciify = [
 			'value'    => 'asciify',
 			'text'     => __( 'Asciify', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$template              = clone $field;
 				$template->_id         = [ 'meta', 'template' ];
 				$template->_name       = [ 'meta', 'template' ];
@@ -1512,7 +1852,7 @@ class Field {
 		$types->regexify = [
 			'value'    => 'regexify',
 			'text'     => __( 'Regexify', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$template              = clone $field;
 				$template->_id         = [ 'meta', 'template' ];
 				$template->_name       = [ 'meta', 'template' ];
@@ -1531,7 +1871,7 @@ class Field {
 		$types->person = [
 			'value'    => 'person',
 			'text'     => __( 'Person', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$template                     = clone $field;
 				$template->_id                = [ 'meta', 'template' ];
 				$template->_name              = [ 'meta', 'template' ];
@@ -1590,7 +1930,7 @@ class Field {
 		$types->geo = [
 			'value'    => 'geo',
 			'text'     => __( 'Geo Information', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$template                     = clone $field;
 				$template->_id                = [ 'meta', 'template' ];
 				$template->_name              = [ 'meta', 'template' ];
@@ -1678,7 +2018,7 @@ class Field {
 		$types->phone = [
 			'value'    => 'company',
 			'text'     => __( 'Company', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$template                     = clone $field;
 				$template->_id                = [ 'meta', 'template' ];
 				$template->_name              = [ 'meta', 'template' ];
@@ -1718,7 +2058,7 @@ class Field {
 		$types->date = [
 			'value'    => 'date',
 			'text'     => __( 'Date', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function ( $field ) use ( $default ) {
 				$template        = clone $field;
 				$template->_id   = [ 'meta', 'interval' ];
 				$template->_name = [ 'meta', 'interval' ];
@@ -1744,7 +2084,7 @@ class Field {
 		$types->timezone = [
 			'value'    => 'timezone',
 			'text'     => __( 'TimeZone', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function () use ( $default ) {
 				$html[] = Field::wrapper( Field::type_number( $default->weight, null, 'string' ), $default->weight );
 
 				return implode( "\r\n", $html );
@@ -1754,7 +2094,7 @@ class Field {
 		$types->email = [
 			'value'    => 'email',
 			'text'     => __( 'Email', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function () use ( $default ) {
 				$html[] = Field::wrapper( Field::type_number( $default->weight, null, 'string' ), $default->weight );
 
 				return implode( "\r\n", $html );
@@ -1764,7 +2104,7 @@ class Field {
 		$types->domain = [
 			'value'    => 'domain',
 			'text'     => __( 'Domain', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function () use ( $default ) {
 				$html[] = Field::wrapper( Field::type_number( $default->weight, null, 'string' ), $default->weight );
 
 				return implode( "\r\n", $html );
@@ -1774,7 +2114,7 @@ class Field {
 		$types->ip = [
 			'value'    => 'ip',
 			'text'     => __( 'IP', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function () use ( $default ) {
 				$html[] = Field::wrapper( Field::type_number( $default->weight, null, 'string' ), $default->weight );
 
 				return implode( "\r\n", $html );
@@ -1784,7 +2124,7 @@ class Field {
 		$types->user_agent = [
 			'value'    => 'user_agent',
 			'text'     => __( 'Browser User Agent', 'fakerpress' ),
-			'template' => function ( $field, $type ) use ( $default ) {
+			'template' => function () use ( $default ) {
 				$html[] = Field::wrapper( Field::type_number( $default->weight, null, 'string' ), $default->weight );
 
 				return implode( "\r\n", $html );
@@ -1798,6 +2138,16 @@ class Field {
 		return apply_filters( self::plugin . '/fields/meta_types', $types );
 	}
 
+	/**
+	 * Builds a date interval picker: a preset dropdown plus start and end date inputs.
+	 *
+	 * @param array|object|string $field     Field definition (type, attributes, options, value), normalized by Field::parse().
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_interval( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -1835,7 +2185,7 @@ class Field {
 		$content[] = '<div class="dashicons dashicons-arrow-right-alt2 dashicon-date" style="display: inline-block;"></div>';
 		$content[] = self::type_date( $max, null, 'string' );
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;
@@ -1848,6 +2198,16 @@ class Field {
 		}
 	}
 
+	/**
+	 * Prints the raw HTML given in the field `html` attribute.
+	 *
+	 * @param array|object|string $field     Field definition with the markup in `html`.
+	 * @param Field|object|null   $container Container settings; when it is a Field instance the markup is wrapped by Field::build().
+	 * @param string              $output    `string` to get one HTML string, anything else for the list of HTML lines.
+	 * @param array               $html      HTML lines to append the markup to.
+	 *
+	 * @return string|array|false The field HTML, or false when the field definition is not usable.
+	 */
 	public static function type_raw( $field, $container = null, $output = 'string', $html = [] ) {
 		$field = self::parse( $field, $container );
 		if ( is_scalar( $field ) ) {
@@ -1860,7 +2220,7 @@ class Field {
 			$content = '';
 		}
 
-		if ( is_a( $container, __CLASS__ ) ) {
+		if ( $container instanceof self ) {
 			$html[] = $container->build( $content );
 		} else {
 			$html = $content;

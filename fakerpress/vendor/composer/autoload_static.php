@@ -83,6 +83,7 @@ class ComposerStaticInit46e05486257bc3dfbe40b34e0ebea8d6
         'FakerPress\\REST\\Endpoints\\Users' => __DIR__ . '/../..' . '/src/FakerPress/REST/Endpoints/Users.php',
         'FakerPress\\REST\\Interface_Endpoint' => __DIR__ . '/../..' . '/src/FakerPress/REST/Interface_Endpoint.php',
         'FakerPress\\REST\\OpenAPI' => __DIR__ . '/../..' . '/src/FakerPress/REST/OpenAPI.php',
+        'FakerPress\\REST\\Traits\\Describes_Generated_Items' => __DIR__ . '/../..' . '/src/FakerPress/REST/Traits/Describes_Generated_Items.php',
         'FakerPress\\REST\\Traits\\Handles_Batching' => __DIR__ . '/../..' . '/src/FakerPress/REST/Traits/Handles_Batching.php',
         'FakerPress\\Template' => __DIR__ . '/../..' . '/src/FakerPress/Template.php',
         'FakerPress\\Utils' => __DIR__ . '/../..' . '/src/FakerPress/Utils.php',

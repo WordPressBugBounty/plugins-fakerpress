@@ -64,6 +64,7 @@ return array(
     'FakerPress\\REST\\Endpoints\\Users' => $baseDir . '/src/FakerPress/REST/Endpoints/Users.php',
     'FakerPress\\REST\\Interface_Endpoint' => $baseDir . '/src/FakerPress/REST/Interface_Endpoint.php',
     'FakerPress\\REST\\OpenAPI' => $baseDir . '/src/FakerPress/REST/OpenAPI.php',
+    'FakerPress\\REST\\Traits\\Describes_Generated_Items' => $baseDir . '/src/FakerPress/REST/Traits/Describes_Generated_Items.php',
     'FakerPress\\REST\\Traits\\Handles_Batching' => $baseDir . '/src/FakerPress/REST/Traits/Handles_Batching.php',
     'FakerPress\\Template' => $baseDir . '/src/FakerPress/Template.php',
     'FakerPress\\Utils' => $baseDir . '/src/FakerPress/Utils.php',

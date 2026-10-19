@@ -1,4 +1,9 @@
 <?php
+/**
+ * Base class for fields in the FakerPress fields API.
+ *
+ * @package FakerPress
+ */
 
 namespace FakerPress\Fields;
 
@@ -99,7 +104,7 @@ abstract class Field_Abstract implements Field_Interface {
 		$ids    = [];
 		$parent = $this;
 
-		// Fetch the ID of all parents
+		// Fetch the ID of all parents.
 		while ( $parent = $parent->get_parent() ) {
 			$ids[] = $parent->get_id();
 		}
@@ -128,7 +133,7 @@ abstract class Field_Abstract implements Field_Interface {
 	/**
 	 * {@inheritDoc}
 	 */
-	public function get_setting( $index, $default = null ) {
+	public function get_setting( $index, $default = null ) { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound -- Public API, renaming the parameter breaks callers that pass it as a named argument.
 		return get( $this->get_settings(), $index, $default );
 	}
 
@@ -171,7 +176,7 @@ abstract class Field_Abstract implements Field_Interface {
 	/**
 	 * {@inheritDoc}
 	 */
-	public function get_html( $format = 'string', $echo = true ) {
+	public function get_html( $format = 'string', $echo = true ) { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.echoFound -- Public API, renaming the parameter breaks callers that pass it as a named argument.
 		// Globally set in the template vars this instance of field.
 		$this->get_template()->set( 'field', $this, false );
 
@@ -208,10 +213,22 @@ abstract class Field_Abstract implements Field_Interface {
 		return $this;
 	}
 
+	/**
+	 * Sets whether init() has run for this field.
+	 *
+	 * @param bool $value True once the field is initialized.
+	 *
+	 * @return void
+	 */
 	public function set_init_flag( bool $value ): void {
 		$this->is_init = $value;
 	}
 
+	/**
+	 * Checks whether init() has run for this field.
+	 *
+	 * @return bool True once the field is initialized.
+	 */
 	public function is_init(): bool {
 		return $this->is_init;
 	}
@@ -320,7 +337,7 @@ abstract class Field_Abstract implements Field_Interface {
 	/**
 	 * {@inheritDoc}
 	 */
-	public function set_parent( Field_Interface $parent ) {
+	public function set_parent( Field_Interface $parent ) { // phpcs:ignore Universal.NamingConventions.NoReservedKeywordParameterNames.parentFound -- Public API, renaming the parameter breaks callers that pass it as a named argument.
 		$this->parent = $parent;
 
 		return $this;

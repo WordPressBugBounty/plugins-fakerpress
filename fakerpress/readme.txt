@@ -1,10 +1,10 @@
 === FakerPress ===
 Contributors:      bordoni
 Tags:              generator, dummy content, lorem ipsun, testing, developer
-Requires at least: 5.5
+Requires at least: 6.6
 Tested up to:      7.0
 Requires PHP:      8.1
-Stable tag:        0.9.2
+Stable tag:        0.10.0
 License:           GPLv2 or later
 License URI:       http://www.gnu.org/licenses/gpl-2.0.html
 Donate link:       https://fakerpress.com/r/sponsor
@@ -17,7 +17,7 @@ When creating a new theme or plugin, you always need to create a custom data set
 
 The goal of FakerPress is to fill this gap, offering a solution for both developers and WordPress users.
 
-> **Note: This plugin requires PHP 8.1 or higher to be activated.**
+> **Note: This plugin requires WordPress 6.6 and PHP 8.1 or higher to be activated.**
 
 [**Checkout our GitHub Repository**](http://fakerpress.com/r/github)
 
@@ -166,6 +166,28 @@ You can report any issues or feature requests via the [WordPress Plugin Forums](
 For help with or questions about FakerPress, visit the [WordPress Plugin Forums](https://wordpress.org/support/plugin/fakerpress/).
 
 == Changelog ==
+
+= 0.10.0 &mdash; 18 of October 2026 =
+
+* Feature - Rebuild every FakerPress admin page (Posts, Users, Terms, Comments, Attachments and Settings) in React with Tailwind CSS v4 and shadcn/ui, on top of the REST API; the Taxonomy and Meta Field Rules keep the familiar numbered, label-left layout and every meta type, including Date. [[#187](https://github.com/bordoni/fakerpress/pull/187)]
+* Fix - Meta Field Rules on generated attachments are now generated like on every other module, instead of each rule being stored raw under a numeric meta key. [[#187](https://github.com/bordoni/fakerpress/pull/187)]
+* Fix - Attachment meta rules that pick Placehold.co (half of the default featured-image rule on Posts) no longer store an error; Placehold.co images are requested as PNG, and a failed image leaves the meta empty. [[#187](https://github.com/bordoni/fakerpress/pull/187)]
+* Fix - User generation no longer comes up one short when a generated website URL is longer than the 100 characters WordPress allows. [[#187](https://github.com/bordoni/fakerpress/pull/187)]
+* Fix - The Users generator accepts a boolean `use_html` from the REST API (the `on` value still works). [[#187](https://github.com/bordoni/fakerpress/pull/187)]
+* Tests - Add Jest coverage for the admin, REST payload tests for every generate endpoint, and build the JS before WPUnit in CI. [[#187](https://github.com/bordoni/fakerpress/pull/187)]
+* Tweak - Format the JavaScript and TypeScript sources with Prettier; no behaviour change. [[#235](https://github.com/bordoni/fakerpress/pull/235)]
+* Tweak - Clear every JavaScript lint and TypeScript error: WordPress package types, the `@fp` import alias in ESLint, the zod v4 meta-rule schema, `…` in translated strings, and `let`/`const` in the legacy jQuery scripts. [[#236](https://github.com/bordoni/fakerpress/pull/236)]
+* Tweak - Clear every stylelint error in the admin styles with a Tailwind v4 aware config; the compiled CSS is unchanged apart from dropping obsolete `-moz-` gradients and empty rules. [[#237](https://github.com/bordoni/fakerpress/pull/237)]
+* Tweak - PHPCS skips the public hook names, the namespaced Faker formatter names and the generated readme data, each with a documented reason. [[#238](https://github.com/bordoni/fakerpress/pull/238)]
+* Fix - The text provider's sentences, paragraphs and text no longer fatal on PHP 8 (`join()` argument order); the post search verifies its nonce before reading the request; template output is escaped, and batch success messages are translatable. [[#239](https://github.com/bordoni/fakerpress/pull/239)]
+* Tweak - Document every class, method and template to the WordPress coding standards, and correct docblocks that contradicted the code. [[#240](https://github.com/bordoni/fakerpress/pull/240)]
+* Tests - CI runs the Jest suite and a TypeScript check, and lints JS and CSS in separate steps, so one failure never hides another. [[#241](https://github.com/bordoni/fakerpress/pull/241)]
+* Tweak - Update the Composer dev dependencies with open security advisories (Composer, Guzzle, PSR-7, Symfony, Flysystem, PHP_CodeSniffer, PHPCSUtils and WPCS). [[#242](https://github.com/bordoni/fakerpress/pull/242)]
+* Tweak - FakerPress now requires WordPress 6.6 or later, the first version that ships the React JSX runtime the new admin loads. Older sites would load blank admin pages, so WordPress now refuses to install this update or activate the plugin there. [[#245](https://github.com/bordoni/fakerpress/pull/245)]
+* Tweak - Leave the Jest tests and mocks and the TypeScript, shadcn/ui and slic configs out of the plugin zip. [[#246](https://github.com/bordoni/fakerpress/pull/246)]
+* Tweak - Update the JavaScript dependencies within their current ranges in `bun.lock`, which covers every open Dependabot update (axios, express, lodash, node-forge, picomatch, PostCSS and more), and pin TypeScript 5 for the type check. [[#247](https://github.com/bordoni/fakerpress/pull/247)]
+* Feature - The result of a run now sits on the Generate button: progress and elapsed time while it works, then what was generated and how long it took, or what went wrong. View details opens every generated item with its summary, edit and view links, plus an Advanced view with each item's full data and the raw request and response. [[#248](https://github.com/bordoni/fakerpress/pull/248)]
+* Fix - Generate errors from the REST API show their message instead of "An unknown error occurred.", and links from batched runs no longer overwrite each other. [[#248](https://github.com/bordoni/fakerpress/pull/248)]
 
 = 0.9.2 &mdash; 20 of July 2026 =
 
