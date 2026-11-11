@@ -2,9 +2,9 @@
   'root' => 
   array (
     'name' => 'bordoni/fakerpress',
-    'pretty_version' => '0.10.0',
-    'version' => '0.10.0.0',
-    'reference' => 'cdc1da3effb4c22060ea1d2220c933cbc5bef128',
+    'pretty_version' => 'dev-main',
+    'version' => 'dev-main',
+    'reference' => '4f1d6f5db2fb09e84416c8f6f1d32c069c7d2ea7',
     'type' => 'wordpress-plugin',
     'install_path' => __DIR__ . '/../',
     'aliases' => 
